@@ -1,0 +1,791 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="單字本">
+<meta name="color-scheme" content="light dark">
+<title>單字本</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Newsreader:ital,opsz,wght@0,6..72,400..700;1,6..72,400..700&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@600;700&display=swap">
+<style>
+/* Layout: one narrow column, like a study sheet. Home = setup panel + two shortcuts; session = one question per screen. */
+:root {
+  --bg: #eef1f7;
+  --surface: #ffffff;
+  --surface-2: #f4f6fb;
+  --ink: #141b34;
+  --muted: #566080;
+  --line: #d6dcea;
+  --accent: #2a3fcf;
+  --on-accent: #ffffff;
+  --accent-soft: #e3e8ff;
+  --hi: #ffe27a;
+  --good: #17794f;
+  --good-bg: #e2f4ea;
+  --bad: #b8322b;
+  --bad-bg: #fde9e7;
+  --font-display: 'Newsreader', 'Noto Serif TC', serif;
+  --font-body: 'Noto Sans TC', system-ui, -apple-system, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --radius: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1325; --surface: #171e37; --surface-2: #1d2543; --ink: #e9edfb; --muted: #9aa5c6;
+    --line: #2b3558; --accent: #8da2ff; --on-accent: #0e1325; --accent-soft: #25306a; --hi: #8a7416;
+    --good: #58cf93; --good-bg: #12332a; --bad: #ff8077; --bad-bg: #3a1c22;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1325; --surface: #171e37; --surface-2: #1d2543; --ink: #e9edfb; --muted: #9aa5c6;
+  --line: #2b3558; --accent: #8da2ff; --on-accent: #0e1325; --accent-soft: #25306a; --hi: #8a7416;
+  --good: #58cf93; --good-bg: #12332a; --bad: #ff8077; --bad-bg: #3a1c22;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.65;
+  padding-block: 18px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 680px; margin: 0 auto; }
+button, input, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+/* header */
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 28px; }
+.brand {
+  font-family: var(--font-display); font-weight: 700; font-size: 1.35rem; letter-spacing: .02em;
+  background: none; border: 0; padding: 2px 0; cursor: pointer;
+}
+.brand span { background: linear-gradient(transparent 60%, var(--hi) 60% 92%, transparent 92%); padding: 0 2px; }
+.sync { display: inline-flex; align-items: center; gap: 7px; font-size: .78rem; color: var(--muted); min-width: 0; }
+.sync i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.sync[data-s="cloud"] i { background: var(--good); }
+.sync[data-s="saving"] i { background: var(--accent); }
+
+/* type */
+h1, h2 { font-family: var(--font-display); font-weight: 700; line-height: 1.25; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(1.9rem, 6vw, 2.5rem); }
+h2 { font-size: 1.6rem; }
+.sub { color: var(--muted); margin: 8px 0 0; }
+.label { font-size: .8rem; font-weight: 500; letter-spacing: .08em; color: var(--muted); margin: 0 0 8px; display: block; }
+.mono { font-family: var(--font-mono); }
+.muted { color: var(--muted); }
+
+/* buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 10px 20px; border-radius: 10px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface); font-weight: 500;
+  transition: background .15s, border-color .15s, transform .05s;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:active { transform: translateY(1px); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 700; }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.ghost { border-color: transparent; background: transparent; color: var(--muted); padding-inline: 10px; }
+.btn.ghost:hover { color: var(--ink); border-color: var(--line); }
+.btn.danger { color: var(--bad); }
+.btn.danger:hover { border-color: var(--bad); }
+.btn.small { min-height: 36px; padding: 4px 12px; font-size: .88rem; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn.block { width: 100%; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* home */
+.panel { background: var(--surface); border: 1.5px solid var(--line); border-radius: 16px; padding: 22px; margin-top: 26px; display: grid; gap: 22px; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.seg button {
+  text-align: left; padding: 12px 14px; border-radius: 10px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface-2); min-width: 0;
+}
+.seg button b { display: block; font-size: 1.05rem; }
+.seg button small { color: var(--muted); font-size: .8rem; }
+.seg button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.seg button[aria-pressed="true"] small { color: var(--ink); }
+.counts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip {
+  min-height: 40px; min-width: 52px; padding: 6px 14px; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid var(--line); background: var(--surface-2); font-family: var(--font-mono); font-size: .92rem;
+}
+.chip[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.chip.bk { font-family: var(--font-body); font-size: .98rem; display: inline-flex; align-items: center; gap: 8px; max-width: 100%; }
+.chip.bk .tn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12em; }
+.chip.bk .tc { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); }
+.chip.bk .box {
+  width: 16px; height: 16px; border-radius: 4px; border: 1.5px solid var(--muted); flex: none; position: relative;
+}
+.chip.bk[aria-pressed="true"] .box { background: var(--accent); border-color: var(--accent); }
+.chip.bk[aria-pressed="true"] .box::after {
+  content: ''; position: absolute; left: 4px; top: 0; width: 4px; height: 9px;
+  border: solid var(--on-accent); border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+.num {
+  width: 92px; min-height: 40px; padding: 6px 12px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--surface-2); font-family: var(--font-mono); font-size: 16px;
+}
+.hint { font-size: .86rem; color: var(--muted); margin: 8px 0 0; }
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.tile {
+  text-align: left; padding: 16px; border-radius: 14px; cursor: pointer; min-width: 0;
+  border: 1.5px solid var(--line); background: var(--surface); display: grid; gap: 4px;
+}
+.tile:hover { border-color: var(--accent); }
+.tile b { font-size: 1.1rem; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.tile .n { font-family: var(--font-mono); font-size: 1.3rem; font-weight: 500; }
+.tile .n.alert { color: var(--bad); }
+.tile small { color: var(--muted); font-size: .84rem; line-height: 1.45; }
+
+/* session */
+.sess-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.sess-top .meta { font-size: .9rem; color: var(--muted); display: flex; gap: 12px; align-items: center; }
+.sess-top .meta .mono { color: var(--ink); }
+.bar { height: 6px; border-radius: 6px; background: var(--line); margin: 10px 0 22px; overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 6px; transition: width .25s; }
+.qcard { background: var(--surface); border: 1.5px solid var(--line); border-radius: 16px; padding: 28px 24px 30px; box-shadow: 0 1px 0 var(--line); }
+.q { font-family: var(--font-display); font-size: clamp(2.2rem, 9vw, 3.4rem); font-weight: 700; line-height: 1.2; margin: 6px 0 0; overflow-wrap: anywhere; }
+.pos {
+  display: inline-block; margin-top: 12px; padding: 1px 10px; border-radius: 6px; font-family: var(--font-mono);
+  font-size: .9rem; background: var(--accent-soft); color: var(--ink);
+}
+.ans-form { margin-top: 18px; display: grid; gap: 12px; }
+.ans-input {
+  width: 100%; min-height: 56px; padding: 12px 16px; border-radius: 12px; border: 1.5px solid var(--line);
+  background: var(--surface); font-size: 18px;
+}
+.ans-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.ans-input[readonly] { background: var(--surface-2); }
+.fb { margin-top: 16px; padding: 14px 16px; border-radius: 12px; display: grid; gap: 4px; }
+.fb strong { font-size: 1.05rem; }
+.fb.ok { background: var(--good-bg); color: var(--good); }
+.fb.bad { background: var(--bad-bg); color: var(--bad); }
+.fb p { margin: 0; color: var(--ink); font-size: .95rem; }
+.fb .correct { font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; overflow-wrap: anywhere; }
+
+/* result + lists */
+.score { font-family: var(--font-mono); font-size: 3rem; font-weight: 500; line-height: 1.1; margin: 14px 0 4px; }
+.list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
+.list li {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px 12px; align-items: center;
+  background: var(--surface); border: 1.5px solid var(--line); border-radius: 12px; padding: 10px 12px;
+}
+.tag { font-size: .72rem; padding: 1px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.li-main { min-width: 0; }
+.li-main b { font-family: var(--font-display); font-size: 1.15rem; overflow-wrap: anywhere; }
+.li-main small { display: block; color: var(--muted); font-size: .82rem; overflow-wrap: anywhere; }
+.empty { margin-top: 22px; padding: 28px 20px; border: 1.5px dashed var(--line); border-radius: 14px; color: var(--muted); }
+.empty b { color: var(--ink); display: block; font-size: 1.05rem; }
+
+/* bank */
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.tab {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-height: 42px; padding: 6px 14px;
+  border-radius: 10px; border: 1.5px solid var(--line); background: var(--surface); cursor: pointer;
+}
+.tab .tn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 12em; }
+.tab .tc { font-size: .8rem; color: var(--muted); }
+.tab:hover { border-color: var(--accent); }
+.tab.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.tab.dirty .tn::after { content: ' •'; color: var(--accent); }
+.tab.add { border-style: dashed; color: var(--muted); }
+.namerow { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-top: 20px; }
+.namefield { flex: 1 1 220px; min-width: 0; }
+.name-input {
+  width: 100%; min-height: 46px; padding: 8px 14px; border-radius: 10px; border: 1.5px solid var(--line);
+  background: var(--surface); font-size: 17px; font-weight: 500;
+}
+.name-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+textarea.bank {
+  width: 100%; min-height: 300px; resize: vertical; padding: 14px 16px; border-radius: 14px;
+  border: 1.5px solid var(--line); background: var(--surface); font-family: var(--font-mono); font-size: 15px; line-height: 1.8;
+  white-space: pre; overflow: auto;
+}
+textarea.bank:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.status { margin: 10px 0 0; font-size: .9rem; }
+.status.err { color: var(--bad); }
+.errs { margin: 6px 0 0; padding-left: 1.2em; color: var(--bad); font-size: .86rem; }
+.fmt { margin-top: 14px; padding: 10px 14px; border-radius: 10px; background: var(--surface-2); font-size: .88rem; color: var(--muted); }
+.fmt code { font-family: var(--font-mono); color: var(--ink); }
+.note { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: var(--accent-soft); font-size: .9rem; }
+.tbl-wrap { margin-top: 20px; max-height: 340px; overflow: auto; border: 1.5px solid var(--line); border-radius: 12px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+th, td { text-align: left; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+th { position: sticky; top: 0; background: var(--surface-2); font-size: .78rem; letter-spacing: .08em; color: var(--muted); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td.en { font-family: var(--font-mono); font-size: .9rem; }
+
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 480px) {
+  .panel { padding: 16px; }
+  .qcard { padding: 22px 18px 24px; }
+  .tiles { gap: 10px; }
+  .tile { padding: 14px; }
+  .list li { grid-template-columns: minmax(0, 1fr) auto; }
+  .list li .tag { grid-column: 1 / -1; justify-self: start; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<style>html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <button class="brand" data-action="go-home" aria-label="回首頁"><span>單字本</span></button>
+    <div class="sync" id="sync" data-s="local"><i></i><span id="syncText">只存在這個瀏覽器</span></div>
+  </header>
+  <main id="app"></main>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- 解析題庫文字 ---------- */
+  var HAS_CJK = /[㐀-鿿豈-﫿]/;
+  var POS_LATIN = /^(n|v|vt|vi|adj|adv|prep|conj|pron|art|aux|int|interj|num|det|phr|abbr|modal)\.?(?:[\/,&](n|v|vt|vi|adj|adv|prep|conj|pron|art|aux|int|interj|num|det|phr)\.?)*$/i;
+  var POS_CJK = /^(名詞|動詞|形容詞|副詞|介系詞|介詞|連接詞|連詞|代名詞|代詞|助動詞|感嘆詞|冠詞|數詞|片語|限定詞|及物動詞|不及物動詞)$/;
+
+  function parseBank(text) {
+    var items = [], errors = [], seen = {}, dup = 0;
+    String(text).split(/\r?\n/).forEach(function (raw, i) {
+      var line = raw.trim();
+      if (!line || line.charAt(0) === '#') return;
+      var t = line.split(/[\s　|]+/).filter(Boolean);
+      var pos = '';
+      if (t.length >= 3) {
+        var l = t[t.length - 1].replace(/^[(（\[【]+|[)）\]】]+$/g, '');
+        if (POS_LATIN.test(l) || POS_CJK.test(l)) { pos = l; t = t.slice(0, -1); }
+      }
+      var zh = t.filter(function (x) { return HAS_CJK.test(x); }).join(' ');
+      var en = t.filter(function (x) { return !HAS_CJK.test(x); }).join(' ');
+      if (!zh) { errors.push({ n: i + 1, text: line, why: '缺少中文' }); return; }
+      if (!en) { errors.push({ n: i + 1, text: line, why: '缺少英文' }); return; }
+      var k = en.toLowerCase() + '|' + zh;
+      if (seen[k]) { dup++; return; }
+      seen[k] = 1;
+      items.push({ zh: zh, en: en, pos: pos });
+    });
+    return { items: items, errors: errors, dup: dup };
+  }
+  function fmtWord(w) { return w.zh + ' ' + w.en + (w.pos ? ' ' + w.pos : ''); }
+  function bankText(words) { return words.map(fmtWord).join('\n'); }
+
+  /* ---------- 狀態與儲存 ---------- */
+  var LS_KEY = 'vocab-site-v1';
+  var SAMPLE = '蘋果 apple n.\n環境 environment n.\n重要的 important adj.\n決定 decide v.\n快速地 quickly adv.\n經驗 experience n.\n改善 improve v.\n然而 however adv.\n社區 community n.\n成功的 successful adj.\n鼓勵 encourage v.\n在…之間 between prep.';
+
+  var idSeq = 0;
+  function uid() { return 'b' + Date.now().toString(36) + (idSeq++).toString(36) + Math.random().toString(36).slice(2, 5); }
+  function cleanWords(arr) {
+    return (Array.isArray(arr) ? arr : []).filter(function (w) { return w && w.zh && w.en; })
+      .map(function (w) { return { zh: String(w.zh), en: String(w.en), pos: String(w.pos || '') }; });
+  }
+  /* 舊版只有一個題庫（bank），這裡會自動轉成 banks 裡的第一個題庫 */
+  function normalize(o) {
+    var st = o || {}, banks = [];
+    if (Array.isArray(st.banks)) {
+      st.banks.forEach(function (b) {
+        if (b && b.id) banks.push({ id: String(b.id), name: String(b.name || '未命名題庫').slice(0, 30), words: cleanWords(b.words), sample: !!b.sample });
+      });
+    } else if (Array.isArray(st.bank)) {
+      banks.push({ id: uid(), name: st.sample ? '範例單字' : '我的題庫', words: cleanWords(st.bank), sample: !!st.sample });
+    }
+    if (!banks.length) banks.push({ id: uid(), name: '我的題庫', words: [], sample: false });
+    var se = st.settings || {};
+    var sel = Array.isArray(se.selected)
+      ? se.selected.filter(function (id) { return banks.some(function (b) { return b.id === id; }); })
+      : banks.map(function (b) { return b.id; });
+    return {
+      banks: banks,
+      wrong: Array.isArray(st.wrong) ? st.wrong.filter(function (w) { return w && w.zh && w.en && w.k; }) : [],
+      settings: {
+        dir: se.dir === 'en2zh' ? 'en2zh' : 'zh2en',
+        count: se.count >= 0 ? Math.min(500, Math.floor(se.count)) : 10,
+        selected: sel
+      }
+    };
+  }
+  function seed() {
+    return normalize({
+      banks: [{ id: uid(), name: '範例單字', words: parseBank(SAMPLE).items, sample: true }],
+      wrong: [], settings: { dir: 'zh2en', count: 10 }
+    });
+  }
+  function loadLocal() {
+    try {
+      var r = localStorage.getItem(LS_KEY);
+      if (r) { var o = JSON.parse(r); if (o && (Array.isArray(o.banks) || Array.isArray(o.bank))) return normalize(o); }
+    } catch (e) {}
+    return seed();
+  }
+  var S = loadLocal();
+
+  function saveLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {} }
+  function persist() { saveLocal(); scheduleRemote(); }
+  saveLocal();
+
+  var remote = null, pushTimer = null, pushing = false, pendingPush = false;
+  function setSync(kind) {
+    var el = document.getElementById('sync'), tx = document.getElementById('syncText');
+    if (!el) return;
+    el.setAttribute('data-s', kind);
+    tx.textContent = kind === 'cloud' ? '已同步到你的帳號' : kind === 'saving' ? '同步中…' : '只存在這個瀏覽器';
+  }
+  function scheduleRemote() {
+    if (!remote) return;
+    setSync('saving');
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(pushRemote, 500);
+  }
+  async function pushRemote() {
+    if (!remote) return;
+    if (pushing) { pendingPush = true; return; }
+    pushing = true;
+    try {
+      var json = JSON.stringify(S);
+      if (json.length > 230000) throw new Error('too large');
+      await remote.set({ state: json, updated: Date.now() });
+      setSync('cloud');
+    } catch (e) { setSync('local'); }
+    pushing = false;
+    if (pendingPush) { pendingPush = false; pushRemote(); }
+  }
+  async function initRemote() {
+    try {
+      if (!window.claude || !window.claude.use) return;
+      var db = await window.claude.use('db');
+      var user = await window.claude.use('user');
+      if (!db || !user) return;
+      var id = await user.id();
+      if (!id) return;
+      var doc = db.doc('data/users/' + id + '/vocab');
+      var snap = await doc.get();
+      var d = snap.exists ? snap.data() : null;
+      if (d && typeof d.state === 'string') {
+        var raw = JSON.parse(d.state);
+        S = normalize(raw);
+        saveLocal();
+        remote = doc;
+        setSync('cloud');
+        if (!Array.isArray(raw.banks)) pushRemote();
+        if ((view === 'home' || (view === 'bank' && !anyDirty())) && !sess) render();
+      } else {
+        remote = doc;
+        await pushRemote();
+      }
+    } catch (e) { remote = null; setSync('local'); }
+  }
+
+  /* ---------- 工具 ---------- */
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function key(w) { return w.en.toLowerCase() + '|' + w.zh; }
+  function shuffle(a) { for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(Math.random() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+  function dirName(d) { return d === 'zh2en' ? '中翻英' : '英翻中'; }
+  function getBank(id) { for (var i = 0; i < S.banks.length; i++) if (S.banks[i].id === id) return S.banks[i]; return null; }
+  function pool() {
+    var seen = {}, out = [];
+    S.banks.forEach(function (b) {
+      if (S.settings.selected.indexOf(b.id) < 0) return;
+      b.words.forEach(function (w) { var k = key(w); if (!seen[k]) { seen[k] = 1; out.push(w); } });
+    });
+    return out;
+  }
+  function totalWords() { return S.banks.reduce(function (n, b) { return n + b.words.length; }, 0); }
+  function normEn(s) { return s.normalize('NFKC').toLowerCase().replace(/[’‘]/g, "'").trim().replace(/[.!?,;]+$/, '').replace(/\s+/g, ' ').trim(); }
+  function normZh(s) { return s.normalize('NFKC').replace(/[\s,.;:!?()\[\]"'~·、，。；：！？「」『』（）\-—…]/g, ''); }
+  function check(w, dir, input) {
+    if (dir === 'zh2en') {
+      var a = normEn(input); if (!a) return false;
+      return [w.en].concat(w.en.split(/\s*[\/;]\s*/)).map(normEn).indexOf(a) >= 0;
+    }
+    var b = normZh(input); if (!b) return false;
+    return [w.zh].concat(w.zh.split(/[；;，,、\/\s]+/)).map(normZh).filter(Boolean).indexOf(b) >= 0;
+  }
+  function addWrong(w, dir, input) {
+    var k = key(w) + '|' + dir;
+    S.wrong = S.wrong.filter(function (x) { return x.k !== k; });
+    S.wrong.unshift({ k: k, zh: w.zh, en: w.en, pos: w.pos, dir: dir, last: input });
+    persist();
+  }
+  function removeWrong(w, dir) {
+    var k = key(w) + '|' + dir;
+    S.wrong = S.wrong.filter(function (x) { return x.k !== k; });
+    persist();
+  }
+
+  /* ---------- 畫面 ---------- */
+  var app = document.getElementById('app');
+  var view = 'home', sess = null, confirmClear = false;
+  var activeBank = null, drafts = {}, confirmDelBank = false;
+
+  function activeB() {
+    var b = activeBank && getBank(activeBank);
+    if (!b) { b = S.banks[0]; activeBank = b.id; }
+    return b;
+  }
+  function draftOf(b) { return drafts[b.id] !== undefined ? drafts[b.id] : bankText(b.words); }
+  function isDirty(b) { return drafts[b.id] !== undefined && drafts[b.id] !== bankText(b.words); }
+  function anyDirty() { return S.banks.some(isDirty); }
+
+  function go(v) { view = v; confirmClear = false; confirmDelBank = false; render(); window.scrollTo(0, 0); }
+
+  function render() {
+    if (view === 'home') app.innerHTML = homeHTML();
+    else if (view === 'bank') { app.innerHTML = bankHTML(); updateBankStatus(); }
+    else if (view === 'review') app.innerHTML = reviewHTML();
+    else if (view === 'session') {
+      app.innerHTML = sessionHTML();
+      var a = document.getElementById('ans');
+      if (a && !a.readOnly) a.focus();
+      else { var n = document.getElementById('goBtn'); if (n) n.focus(); }
+    }
+  }
+
+  function homeHTML() {
+    var s = S.settings, w = S.wrong.length, p = pool().length;
+    var chips = [5, 10, 20].map(function (c) {
+      return '<button class="chip" data-action="setcount" data-n="' + c + '" aria-pressed="' + (s.count === c) + '">' + c + '</button>';
+    }).join('') + '<button class="chip" data-action="setcount" data-n="0" aria-pressed="' + (s.count === 0) + '">全部</button>';
+    var bks = S.banks.map(function (b) {
+      return '<button class="chip bk" data-action="toggle-bank" data-id="' + esc(b.id) + '" aria-pressed="' + (s.selected.indexOf(b.id) >= 0) + '">' +
+        '<span class="box"></span><span class="tn">' + esc(b.name) + '</span><span class="tc">' + b.words.length + '</span></button>';
+    }).join('');
+    var hint = '';
+    if (!s.selected.length) hint = '請至少選一個題庫。';
+    else if (!p) hint = '選到的題庫裡還沒有單字，請先到題庫輸入。';
+    else hint = '已選 ' + s.selected.length + ' 個題庫，共 ' + p + ' 個單字。';
+    return '' +
+      '<h1>今天背幾個單字？</h1>' +
+      '<p class="sub">共 ' + S.banks.length + ' 個題庫、' + totalWords() + ' 個單字，訂正區有 ' + w + ' 題。</p>' +
+      '<section class="panel" aria-label="出題設定">' +
+        '<div><p class="label">選擇題庫</p><div class="counts">' + bks + '</div><p class="hint" id="poolHint">' + hint + '</p></div>' +
+        '<div><p class="label">題目類型</p><div class="seg">' +
+          '<button data-action="setdir" data-dir="zh2en" aria-pressed="' + (s.dir === 'zh2en') + '"><b>中翻英</b><small>看中文，寫英文</small></button>' +
+          '<button data-action="setdir" data-dir="en2zh" aria-pressed="' + (s.dir === 'en2zh') + '"><b>英翻中</b><small>看英文，寫中文</small></button>' +
+        '</div></div>' +
+        '<div><p class="label">題數</p><div class="counts">' + chips +
+          '<label class="sr" for="countInput">自訂題數</label>' +
+          '<input class="num" id="countInput" type="number" inputmode="numeric" min="1" max="500" placeholder="自訂" value="' + ([5, 10, 20, 0].indexOf(s.count) >= 0 ? '' : s.count) + '">' +
+        '</div></div>' +
+        '<div><button class="btn primary block" data-action="start"' + (p ? '' : ' disabled') + '>開始做題</button></div>' +
+      '</section>' +
+      '<div class="tiles">' +
+        '<button class="tile" data-action="go-review"><b>訂正區<span class="n' + (w ? ' alert' : '') + '">' + w + '</span></b><small>重做答錯的題目</small></button>' +
+        '<button class="tile" data-action="go-bank"><b>題庫<span class="n">' + S.banks.length + '</span></b><small>新增題庫、修改單字</small></button>' +
+      '</div>';
+  }
+
+  /* 題庫 */
+  function bankHTML() {
+    var b = activeB();
+    var tabs = S.banks.map(function (x) {
+      return '<button class="tab' + (x.id === b.id ? ' on' : '') + (isDirty(x) ? ' dirty' : '') + '" data-action="pick-bank" data-id="' + esc(x.id) + '" aria-pressed="' + (x.id === b.id) + '">' +
+        '<span class="tn">' + esc(x.name) + '</span><span class="tc mono">' + x.words.length + '</span></button>';
+    }).join('') + '<button class="tab add" data-action="new-bank">＋ 新增題庫</button>';
+    var del = '';
+    if (S.banks.length > 1) {
+      del = confirmDelBank
+        ? '<button class="btn danger" data-action="del-yes">確定刪除</button><button class="btn" data-action="del-no">取消</button>'
+        : '<button class="btn ghost danger" data-action="del-ask">刪除題庫</button>';
+    }
+    return '' +
+      '<div class="sess-top"><button class="btn ghost" data-action="go-home">← 回首頁</button></div>' +
+      '<h2 style="margin-top:8px">題庫</h2>' +
+      '<p class="sub">單字可以分成好幾個小題庫，點一個題庫就能修改它的名稱和單字。</p>' +
+      '<div class="tabs" role="group" aria-label="選擇要編輯的題庫">' + tabs + '</div>' +
+      '<div class="namerow"><div class="namefield"><label class="label" for="bankName">題庫名稱</label>' +
+      '<input class="name-input" id="bankName" type="text" maxlength="30" autocomplete="off" value="' + esc(b.name) + '"></div>' + del + '</div>' +
+      (confirmDelBank ? '<p class="status err">刪除後，「' + esc(b.name) + '」裡的 ' + b.words.length + ' 個單字會一起消失。</p>' : '') +
+      '<div class="fmt">一行一個單字，依序寫「中文　英文　詞性」，中間用空格隔開。例如：<code>單字 vocabulary n.</code>　<code>英文 English n.</code>　詞性可以省略。</div>' +
+      (b.sample ? '<div class="note">這個題庫是範例單字，可以整段刪掉，貼上自己的單字再儲存。</div>' : '') +
+      '<div style="margin-top:14px"><label class="sr" for="bankText">題庫內容</label>' +
+      '<textarea class="bank" id="bankText" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="單字 vocabulary n.&#10;英文 English n.&#10;蘋果 apple n.">' + esc(draftOf(b)) + '</textarea></div>' +
+      '<div id="bankStatus" class="status" role="status"></div>' +
+      '<div class="row" style="margin-top:14px"><button class="btn primary" id="saveBank" data-action="save-bank">儲存題庫</button>' +
+      '<button class="btn" data-action="revert-bank">還原</button></div>' +
+      '<div class="tbl-wrap"><table><thead><tr><th>中文</th><th>英文</th><th>詞性</th></tr></thead><tbody id="bankRows"></tbody></table></div>';
+  }
+  var previewTimer = null;
+  function updateBankStatus() {
+    var t = document.getElementById('bankText'); if (!t) return;
+    var b = activeB();
+    var r = parseBank(t.value), dirty = isDirty(b);
+    var st = document.getElementById('bankStatus'), save = document.getElementById('saveBank'), rows = document.getElementById('bankRows');
+    var msg = '';
+    if (r.errors.length) {
+      st.className = 'status err';
+      msg = '有 ' + r.errors.length + ' 行格式不對，修正後才能儲存：<ul class="errs">' +
+        r.errors.slice(0, 5).map(function (e) { return '<li>第 ' + e.n + ' 行（' + e.why + '）：' + esc(e.text) + '</li>'; }).join('') +
+        (r.errors.length > 5 ? '<li>還有 ' + (r.errors.length - 5) + ' 行…</li>' : '') + '</ul>';
+    } else {
+      st.className = 'status';
+      msg = '共 ' + r.items.length + ' 個單字' + (r.dup ? '，重複的 ' + r.dup + ' 行會合併' : '') + (dirty ? '，尚未儲存。' : '，已儲存。');
+    }
+    st.innerHTML = msg;
+    save.disabled = r.errors.length > 0 || !dirty;
+    var tab = document.querySelector('.tab[data-id="' + b.id + '"]');
+    if (tab) tab.classList.toggle('dirty', dirty);
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(function () {
+      var shown = r.items.slice(0, 200);
+      rows.innerHTML = shown.map(function (w) {
+        return '<tr><td>' + esc(w.zh) + '</td><td class="en">' + esc(w.en) + '</td><td class="en">' + esc(w.pos) + '</td></tr>';
+      }).join('') + (r.items.length > 200 ? '<tr><td colspan="3" class="muted">只顯示前 200 個</td></tr>' : '') +
+        (!r.items.length ? '<tr><td colspan="3" class="muted">還沒有單字</td></tr>' : '');
+    }, 120);
+  }
+
+  /* 訂正區清單 */
+  function reviewHTML() {
+    var w = S.wrong;
+    var head = '<div class="sess-top"><button class="btn ghost" data-action="go-home">← 回首頁</button></div><h2 style="margin-top:8px">訂正區</h2>';
+    if (!w.length) {
+      return head + '<p class="sub">做錯的題目會集中在這裡。</p>' +
+        '<div class="empty"><b>目前沒有要訂正的題目</b>去做一份題目，答錯的會自動放進來。</div>' +
+        '<div class="row" style="margin-top:16px"><button class="btn primary" data-action="go-home">回首頁做題</button></div>';
+    }
+    return head + '<p class="sub">共 ' + w.length + ' 題，用跟做題一樣的方式重新作答，答對就會移出訂正區。</p>' +
+      '<div class="row" style="margin-top:16px"><button class="btn primary" data-action="start-review">開始訂正</button>' +
+      (confirmClear
+        ? '<button class="btn danger" data-action="clear-yes">確定清空 ' + w.length + ' 題</button><button class="btn" data-action="clear-no">取消</button>'
+        : '<button class="btn ghost danger" data-action="clear-ask">清空訂正區</button>') + '</div>' +
+      '<ul class="list">' + w.map(function (x) {
+        var q = x.dir === 'zh2en' ? x.zh : x.en;
+        return '<li><span class="tag">' + dirName(x.dir) + '</span><div class="li-main"><b>' + esc(q) + '</b><small>' +
+          (x.last ? '上次寫：' + esc(x.last) : '上次未作答') + '</small></div>' +
+          '<button class="btn small ghost" data-action="remove-wrong" data-k="' + esc(x.k) + '">移除</button></li>';
+      }).join('') + '</ul>';
+  }
+
+  /* 做題與訂正 */
+  function startQuiz() {
+    var words = pool();
+    if (!words.length) return;
+    var n = S.settings.count || words.length;
+    n = Math.min(n, words.length);
+    var dir = S.settings.dir;
+    var items = shuffle(words.slice()).slice(0, n).map(function (w) { return { w: w, dir: dir }; });
+    sess = { mode: 'quiz', items: items, idx: 0, total: n, results: [], phase: 'ask', last: null, done: false };
+    go('session');
+  }
+  function startReview() {
+    if (!S.wrong.length) return;
+    var q = shuffle(S.wrong.slice()).map(function (x) { return { w: x, dir: x.dir }; });
+    sess = { mode: 'review', queue: q, total: q.length, handled: 0, fixed: 0, left: [], phase: 'ask', last: null, done: false };
+    go('session');
+  }
+  function current() { return sess.mode === 'quiz' ? sess.items[sess.idx] : sess.queue[0]; }
+
+  function sessionHTML() {
+    if (sess.done) return doneHTML();
+    var cur = current(), w = cur.w, dir = cur.dir, quiz = sess.mode === 'quiz';
+    var prompt = dir === 'zh2en' ? w.zh : w.en;
+    var answer = dir === 'zh2en' ? w.en : w.zh;
+    var progress = quiz ? (sess.idx + (sess.phase === 'result' ? 1 : 0)) / sess.total : sess.handled / sess.total;
+    var counter = quiz ? (sess.idx + 1) + ' / ' + sess.total : '已處理 ' + sess.handled + ' / ' + sess.total;
+    var res = sess.phase === 'result', last = sess.last;
+    var lastQ = quiz ? sess.idx === sess.total - 1 : false;
+
+    var fb = '';
+    if (res) {
+      fb = last.ok
+        ? '<div class="fb ok" role="status"><strong>' + (quiz ? '答對了' : '訂正完成') + '</strong><p class="correct">' + esc(answer) + '</p></div>'
+        : '<div class="fb bad" role="status"><strong>答錯了</strong><p>正確答案</p><p class="correct">' + esc(answer) + '</p>' +
+          '<p class="muted">你的答案：' + (last.input ? esc(last.input) : '未作答') + '</p></div>';
+    }
+    var btns;
+    if (!res) {
+      btns = '<div class="row"><button class="btn primary" type="submit" style="flex:1">送出</button><button class="btn" type="button" data-action="skip">不會寫</button></div>';
+    } else if (quiz) {
+      btns = '<button class="btn primary block" id="goBtn" type="submit">' + (lastQ ? '看結果' : '下一題') + '</button>';
+    } else if (last.ok) {
+      btns = '<button class="btn primary block" id="goBtn" type="submit">下一題</button>';
+    } else {
+      btns = '<div class="row"><button class="btn primary" id="goBtn" type="submit" style="flex:1">再試一次</button><button class="btn" type="button" data-action="advance">先跳過</button></div>';
+    }
+    return '' +
+      '<div class="sess-top"><button class="btn ghost" data-action="' + (quiz ? 'go-home' : 'go-review') + '">← 離開</button>' +
+      '<div class="meta"><span>' + (quiz ? '做題' : '訂正') + '・' + dirName(dir) + '</span><span class="mono">' + counter + '</span></div></div>' +
+      '<div class="bar"><i style="width:' + Math.round(progress * 100) + '%"></i></div>' +
+      '<section class="qcard"><p class="label">' + (dir === 'zh2en' ? '請寫出英文' : '請寫出中文') + '</p>' +
+      '<p class="q">' + esc(prompt) + '</p>' + (w.pos ? '<span class="pos">' + esc(w.pos) + '</span>' : '') + '</section>' +
+      '<form class="ans-form" id="ansForm" autocomplete="off"><label class="sr" for="ans">你的答案</label>' +
+      '<input class="ans-input" id="ans" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="done" lang="' + (dir === 'zh2en' ? 'en' : 'zh-Hant') + '" placeholder="' + (dir === 'zh2en' ? '輸入英文答案' : '輸入中文答案') + '"' +
+      (res ? ' readonly value="' + esc(last.input) + '"' : '') + '>' + btns + '</form>' + fb;
+  }
+
+  function doneHTML() {
+    if (sess.mode === 'quiz') {
+      var wrong = sess.results.filter(function (r) { return !r.ok; });
+      var right = sess.total - wrong.length;
+      return '<div class="sess-top"><button class="btn ghost" data-action="go-home">← 回首頁</button></div>' +
+        '<h2 style="margin-top:8px">做完了</h2>' +
+        '<p class="score">' + right + ' / ' + sess.total + '</p>' +
+        '<p class="sub">' + (wrong.length ? '答錯的 ' + wrong.length + ' 題已放進訂正區。' : '全部答對。') + '</p>' +
+        '<div class="row" style="margin-top:18px">' +
+        (wrong.length ? '<button class="btn primary" data-action="go-review">前往訂正區</button>' : '') +
+        '<button class="btn' + (wrong.length ? '' : ' primary') + '" data-action="start">再做一次</button></div>' +
+        (wrong.length ? '<ul class="list">' + wrong.map(function (r) {
+          var q = r.dir === 'zh2en' ? r.w.zh : r.w.en, a = r.dir === 'zh2en' ? r.w.en : r.w.zh;
+          return '<li><span class="tag">' + dirName(r.dir) + '</span><div class="li-main"><b>' + esc(q) + '</b><small>答案：' + esc(a) + '　你寫：' + (r.input ? esc(r.input) : '未作答') + '</small></div><span></span></li>';
+        }).join('') + '</ul>' : '');
+    }
+    var remain = S.wrong.length;
+    return '<div class="sess-top"><button class="btn ghost" data-action="go-home">← 回首頁</button></div>' +
+      '<h2 style="margin-top:8px">訂正結束</h2>' +
+      '<p class="score">' + sess.fixed + ' / ' + sess.total + '</p>' +
+      '<p class="sub">' + (remain ? '訂正了 ' + sess.fixed + ' 題，還剩 ' + remain + ' 題留在訂正區。' : '訂正區已清空。') + '</p>' +
+      '<div class="row" style="margin-top:18px">' +
+      (remain ? '<button class="btn primary" data-action="start-review">再訂正一次</button>' : '') +
+      '<button class="btn' + (remain ? '' : ' primary') + '" data-action="go-home">回首頁</button></div>';
+  }
+
+  function judge(value, skipped) {
+    var cur = current(), ok = skipped ? false : check(cur.w, cur.dir, value);
+    sess.last = { ok: ok, input: skipped ? '' : value.trim() };
+    sess.phase = 'result';
+    if (sess.mode === 'quiz') {
+      sess.results.push({ w: cur.w, dir: cur.dir, input: sess.last.input, ok: ok });
+      if (!ok) addWrong(cur.w, cur.dir, sess.last.input);
+    } else if (ok) {
+      removeWrong(cur.w, cur.dir);
+    }
+    render();
+  }
+  function advance() {
+    if (sess.mode === 'quiz') {
+      sess.idx++;
+      if (sess.idx >= sess.total) sess.done = true;
+    } else {
+      var item = sess.queue.shift();
+      sess.handled++;
+      if (sess.last && sess.last.ok) sess.fixed++; else sess.left.push(item);
+      if (!sess.queue.length) sess.done = true;
+    }
+    sess.phase = 'ask';
+    sess.last = null;
+    render();
+    window.scrollTo(0, 0);
+  }
+  function onSubmit() {
+    if (!sess || sess.done) return;
+    if (sess.phase === 'ask') {
+      var v = document.getElementById('ans').value;
+      if (!v.trim()) return;
+      judge(v, false);
+    } else if (sess.mode === 'review' && !sess.last.ok) {
+      sess.phase = 'ask'; sess.last = null; render();
+    } else advance();
+  }
+
+  /* ---------- 事件 ---------- */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-action]');
+    if (!b) return;
+    var a = b.getAttribute('data-action');
+    if (a === 'go-home') { sess = null; go('home'); }
+    else if (a === 'go-bank') go('bank');
+    else if (a === 'go-review') { sess = null; go('review'); }
+    else if (a === 'setdir') { S.settings.dir = b.getAttribute('data-dir'); persist(); render(); }
+    else if (a === 'setcount') { S.settings.count = parseInt(b.getAttribute('data-n'), 10); persist(); render(); }
+    else if (a === 'toggle-bank') {
+      var id = b.getAttribute('data-id'), sel = S.settings.selected, i = sel.indexOf(id);
+      if (i >= 0) sel.splice(i, 1); else sel.push(id);
+      persist(); render();
+    }
+    else if (a === 'start') startQuiz();
+    else if (a === 'start-review') startReview();
+    else if (a === 'skip') judge('', true);
+    else if (a === 'advance') advance();
+    else if (a === 'pick-bank') { activeBank = b.getAttribute('data-id'); confirmDelBank = false; render(); }
+    else if (a === 'new-bank') {
+      var nb = { id: uid(), name: '新題庫 ' + (S.banks.length + 1), words: [], sample: false };
+      S.banks.push(nb); S.settings.selected.push(nb.id);
+      activeBank = nb.id; confirmDelBank = false; persist(); render();
+      var ni = document.getElementById('bankName'); if (ni) { ni.focus(); ni.select(); }
+    }
+    else if (a === 'del-ask') { confirmDelBank = true; render(); }
+    else if (a === 'del-no') { confirmDelBank = false; render(); }
+    else if (a === 'del-yes') {
+      var cur = activeB();
+      S.banks = S.banks.filter(function (x) { return x.id !== cur.id; });
+      S.settings.selected = S.settings.selected.filter(function (x) { return x !== cur.id; });
+      delete drafts[cur.id];
+      activeBank = null; confirmDelBank = false; persist(); render();
+    }
+    else if (a === 'save-bank') {
+      var bk = activeB();
+      var r = parseBank(document.getElementById('bankText').value);
+      if (r.errors.length) return;
+      bk.words = r.items; bk.sample = false;
+      delete drafts[bk.id];
+      persist();
+      document.getElementById('bankText').value = bankText(bk.words);
+      var tab = document.querySelector('.tab[data-id="' + bk.id + '"] .tc');
+      if (tab) tab.textContent = bk.words.length;
+      updateBankStatus();
+    }
+    else if (a === 'revert-bank') { delete drafts[activeB().id]; render(); }
+    else if (a === 'remove-wrong') { var k = b.getAttribute('data-k'); S.wrong = S.wrong.filter(function (x) { return x.k !== k; }); persist(); render(); }
+    else if (a === 'clear-ask') { confirmClear = true; render(); }
+    else if (a === 'clear-no') { confirmClear = false; render(); }
+    else if (a === 'clear-yes') { S.wrong = []; confirmClear = false; persist(); render(); }
+  });
+  document.addEventListener('submit', function (e) {
+    if (e.target && e.target.id === 'ansForm') { e.preventDefault(); onSubmit(); }
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.id === 'bankText') { drafts[activeB().id] = t.value; updateBankStatus(); }
+    else if (t.id === 'bankName') {
+      var tn = document.querySelector('.tab[data-id="' + activeB().id + '"] .tn');
+      if (tn) tn.textContent = t.value.trim() || '未命名題庫';
+    }
+    else if (t.id === 'countInput') {
+      var n = parseInt(t.value, 10);
+      if (n >= 1) {
+        S.settings.count = Math.min(500, n);
+        persist();
+        document.querySelectorAll('.chip[data-n]').forEach(function (c) {
+          c.setAttribute('aria-pressed', String(parseInt(c.getAttribute('data-n'), 10) === S.settings.count));
+        });
+      }
+    }
+  });
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.id === 'bankName') {
+      var b = activeB(), name = t.value.trim().slice(0, 30);
+      if (!name) name = b.name;
+      t.value = name;
+      var tn = document.querySelector('.tab[data-id="' + b.id + '"] .tn');
+      if (tn) tn.textContent = name;
+      if (name !== b.name) { b.name = name; persist(); }
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && e.target && e.target.id === 'bankName' && !e.isComposing && e.keyCode !== 229) {
+      e.preventDefault(); e.target.blur();
+    }
+  });
+
+  render();
+  initRemote();
+})();
+</script>
+
+</body>
+</html>
